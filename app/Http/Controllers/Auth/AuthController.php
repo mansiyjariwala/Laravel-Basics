@@ -8,28 +8,59 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use App\Models\Role;
+use Illuminate\Support\Facades\Gate;
+
 
 class AuthController extends Controller
 {
     public function register(RegisterRequest $request)
     {
+        // Start database transaction
+        DB::beginTransaction();
+
         try {
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'password' => Hash::make($request->password)
             ]);
-    
+
+            // Handle both single role and multiple roles
+            $roleInput = $request->roles;
+            if (!is_array($roleInput)) {
+                // If single role is provided as string, convert to array
+                $roleInput = [$roleInput];
+            }
+
+            // Get all requested roles
+            $roles = Role::whereIn('name', $roleInput)->get();
+
+            // Verify if all requested roles exist
+            if ($roles->count() !== count($roleInput)) {
+                DB::rollBack();
+                return response()->json(['error' => 'One or more invalid roles specified'], 400);
+            }
+
+            // Attach roles to user
+            $user->roles()->attach($roles->pluck('id')->toArray());
+
             // Generate token
             $token = $user->createToken('AuthToken')->accessToken;
-    
+
+            // If everything is successful, commit the transaction
+            DB::commit();
+
             return response()->json([
                 'message' => 'User registered successfully',
                 'token' => $token,
-                'user' => $user
+                'user' => $user->load('roles') // Load roles relationship
             ], 201);
-            
+
         } catch (\Throwable $e) {
+            // If there's an error, rollback the transaction
+            DB::rollBack();
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -47,20 +78,57 @@ class AuthController extends Controller
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        // dd($user);
+
+        $roleNames = $user->roles()->pluck('name')->toArray();
+
         $token = $user->createToken('AuthToken')->accessToken;
-        return response()->json(['token' => $token], 200);
+        return response()->json(['token' => $token,'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'roles' => $roleNames // Returns an array of roles
+        ]], 200);
     }
 
     public function dashboard()
     {
-        return response()->json(['message' => 'Welcome to Dashboard!', 'user' => Auth::user()]);
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $roleNames = $user->roles->pluck('name')->toArray();
+
+        // Determine access level messages for all roles
+        $accessMessages = [];
+        if (Gate::allows('isAdmin')) {
+            $accessMessages[] = 'You have admin access';
+        }
+        if (Gate::allows('isManager')) {
+            $accessMessages[] = 'You have manager access';
+        }
+        if (Gate::allows('isUser')) {
+            $accessMessages[] = 'You have user access';
+        }
+
+        // Join messages with comma if multiple roles exist
+        $accessMessage = !empty($accessMessages)
+            ? implode(', ', $accessMessages)
+            : '';
+
+        return response()->json([
+            'message' => 'Welcome to Dashboard!',
+            'access' => $accessMessage,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'roles' => $roleNames
+            ]
+        ]);
     }
 
     public function logout()
     {
         $user = Auth::user();
-        
+
         /** @var \App\Models\User $user */
         $user->token()->revoke();
 
