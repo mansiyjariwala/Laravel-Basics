@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Role;
 use Illuminate\Support\Facades\Gate;
+use App\Http\Resources\DashboardResource;
 
 
 class AuthController extends Controller
@@ -55,7 +56,7 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'User registered successfully',
                 'token' => $token,
-                'user' => $user->load('roles') // Load roles relationship
+                'user' => $user->load('roles')
             ], 201);
 
         } catch (\Throwable $e) {
@@ -94,35 +95,7 @@ class AuthController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        $roleNames = $user->roles->pluck('name')->toArray();
-
-        // Determine access level messages for all roles
-        $accessMessages = [];
-        if (Gate::allows('isAdmin')) {
-            $accessMessages[] = 'You have admin access';
-        }
-        if (Gate::allows('isManager')) {
-            $accessMessages[] = 'You have manager access';
-        }
-        if (Gate::allows('isUser')) {
-            $accessMessages[] = 'You have user access';
-        }
-
-        // Join messages with comma if multiple roles exist
-        $accessMessage = !empty($accessMessages)
-            ? implode(', ', $accessMessages)
-            : '';
-
-        return response()->json([
-            'message' => 'Welcome to Dashboard!',
-            'access' => $accessMessage,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'roles' => $roleNames
-            ]
-        ]);
+        return new DashboardResource($user);
     }
 
     public function logout()
