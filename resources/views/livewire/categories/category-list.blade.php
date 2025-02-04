@@ -1,11 +1,11 @@
-<div>
+<div class="p-4">
     @if (session()->has('message'))
         <div class="alert alert-success">
             {{ session('message') }}
         </div>
     @endif
 
-    <form wire:submit.prevent="{{ $isEditing ? 'update' : 'store' }}">
+    <form wire:submit.prevent="{{ $isEditing ? 'update' : 'store' }}" class="mb-4">
         <div class="form-group">
             <input type="text" class="form-control" wire:model="name" placeholder="Category Name">
             @error('name') <span class="text-danger">{{ $message }}</span> @enderror

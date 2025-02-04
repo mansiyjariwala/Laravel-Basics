@@ -33,28 +33,37 @@ class PostList extends Component
         return view('livewire.posts.post-list', [
             'posts' => Post::with('category')->latest()->get(),
             'categories' => Category::all()
-        ]);
+        ])->layout('components.layouts.app');
     }
 
     public function store()
     {
-        $this->validate();
+        try {
+            $validated = $this->validate([
+                'title' => 'required',
+                'content' => 'required',
+                'category_id' => 'required',
+                'featured_image' => 'nullable|image|max:1024',
+            ]);
 
-        $image_path = null;
-        if ($this->featured_image) {
-            $image_path = $this->featured_image->store('posts', 'public');
+            $image_path = null;
+            if ($this->featured_image) {
+                $image_path = $this->featured_image->store('posts', 'public');
+            }
+
+            Post::create([
+                'title' => $this->title,
+                'slug' => Str::slug($this->title),
+                'content' => $this->content,
+                'category_id' => $this->category_id,
+                'featured_image' => $image_path
+            ]);
+
+            session()->flash('success', 'Post created successfully!');
+            $this->reset(['title', 'content', 'category_id', 'featured_image']);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to create post. Please try again.');
         }
-
-        Post::create([
-            'title' => $this->title,
-            'slug' => Str::slug($this->title),
-            'content' => $this->content,
-            'category_id' => $this->category_id,
-            'featured_image' => $image_path
-        ]);
-
-        $this->reset(['title', 'content', 'category_id', 'featured_image']);
-        session()->flash('message', 'Post created successfully!');
     }
 
     public function edit($id)
@@ -70,43 +79,52 @@ class PostList extends Component
 
     public function update()
     {
-        $this->validate([
-            'title' => 'required|min:3',
-            'content' => 'required',
-            'category_id' => 'required|exists:categories,id',
-            'featured_image' => 'nullable|image|max:1024'
-        ]);
+        try {
+            $validated = $this->validate([
+                'title' => 'required',
+                'content' => 'required',
+                'category_id' => 'required',
+                'featured_image' => 'nullable|image|max:1024',
+            ]);
 
-        $post = Post::find($this->post_id);
-        $image_path = $post->featured_image;
+            $post = Post::find($this->post_id);
+            $image_path = $post->featured_image;
 
-        if ($this->featured_image) {
-            if ($post->featured_image) {
-                Storage::disk('public')->delete($post->featured_image);
+            if ($this->featured_image) {
+                if ($post->featured_image) {
+                    Storage::disk('public')->delete($post->featured_image);
+                }
+                $image_path = $this->featured_image->store('posts', 'public');
             }
-            $image_path = $this->featured_image->store('posts', 'public');
+
+            $post->update([
+                'title' => $this->title,
+                'slug' => Str::slug($this->title),
+                'content' => $this->content,
+                'category_id' => $this->category_id,
+                'featured_image' => $image_path
+            ]);
+
+            session()->flash('success', 'Post updated successfully!');
+            $this->isEditing = false;
+            $this->reset(['title', 'content', 'category_id', 'featured_image']);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to update post. Please try again.');
         }
-
-        $post->update([
-            'title' => $this->title,
-            'slug' => Str::slug($this->title),
-            'content' => $this->content,
-            'category_id' => $this->category_id,
-            'featured_image' => $image_path
-        ]);
-
-        $this->reset(['title', 'content', 'category_id', 'featured_image', 'isEditing', 'post_id', 'temp_image']);
-        session()->flash('message', 'Post updated successfully!');
     }
 
     public function delete($id)
     {
-        $post = Post::find($id);
-        if ($post->featured_image) {
-            Storage::disk('public')->delete($post->featured_image);
+        try {
+            $post = Post::findOrFail($id);
+            if ($post->featured_image) {
+                Storage::disk('public')->delete($post->featured_image);
+            }
+            $post->delete();
+            session()->flash('success', 'Post deleted successfully!');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Failed to delete post. Please try again.');
         }
-        $post->delete();
-        session()->flash('message', 'Post deleted successfully!');
     }
 
     public function cancel()

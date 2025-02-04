@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Livewire\Categories\CategoryList;
 use App\Livewire\Posts\PostList;
-
+use App\Livewire\CollegeList;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -21,3 +21,4 @@ Route::get('/', function () {
 
 Route::get('/categories', CategoryList::class)->name('categories');
 Route::get('/posts', PostList::class)->name('posts');
+Route::get('/colleges', CollegeList::class)->name('colleges');  

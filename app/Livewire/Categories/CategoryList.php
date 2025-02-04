@@ -20,7 +20,7 @@ class CategoryList extends Component
     {
         return view('livewire.categories.category-list', [
             'categories' => Category::latest()->get()
-        ]);
+        ])->layout('components.layouts.app');
     }
 
     public function store()
