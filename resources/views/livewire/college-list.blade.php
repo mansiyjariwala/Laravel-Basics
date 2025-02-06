@@ -47,13 +47,19 @@
                     @error('image') <span class="text-red-500">{{ $message }}</span> @enderror
 
                     {{-- Image Preview --}}
-                    @if ($image && is_object($image))
-                        <div class="mt-2">
+                    <div class="mt-2">
+                        @if ($image && is_object($image))
+                            {{-- New image preview --}}
                             <img src="{{ $image->temporaryUrl() }}"
                                  alt="Preview"
                                  class="max-w-xs h-auto rounded shadow-lg">
-                        </div>
-                    @endif
+                        @elseif ($currentImage)
+                            {{-- Existing image preview --}}
+                            <img src="{{ asset('storage/' . $currentImage) }}"
+                                 alt="Current Image"
+                                 class="max-w-xs h-auto rounded shadow-lg">
+                        @endif
+                    </div>
                 </div>
 
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
@@ -64,5 +70,7 @@
                 </div>
             </form>
         </div>
+
+        <livewire:college-table />
     </div>
 </div>

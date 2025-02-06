@@ -13,13 +13,12 @@ class CollegeList extends Component
     public $location;
     public $image;
     public $id;
+    public $currentImage;
     use WithFileUploads;
 
     public function render()
     {
-        return view('livewire.college-list', [
-            'colleges' => College::all()
-        ])->layout('components.layouts.app');
+        return view('livewire.college-list')->layout('components.layouts.app');
     }
 
     protected function rules()
@@ -51,20 +50,21 @@ class CollegeList extends Component
                 'image' => $image_path
             ]);
 
-            $this->reset(['name', 'location', 'image']);
+            $this->reset(['name', 'location', 'image', 'currentImage']);
             session()->flash('success', 'College created successfully!');
+            $this->dispatch('pg:eventRefresh-default');
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to create college. Please try again.');
         }
     }
 
-    public function edit($id)
+    #[\Livewire\Attributes\On('edit-college-form')]
+    public function editCollege($data)
     {
-        $college = College::find($id);
-        $this->id = $id;
-        $this->name = $college->name;
-        $this->location = $college->location;
-        $this->image = $college->image;
+        $this->id = $data['id'];
+        $this->name = $data['name'];
+        $this->location = $data['location'];
+        $this->currentImage = $data['image'] && !str_contains($data['image'], 'Temp') ? $data['image'] : null;
     }
 
     public function update()
@@ -80,7 +80,7 @@ class CollegeList extends Component
             $image_path = $college->image;
 
             if ($this->image) {
-                if ($college->image) {
+                if ($college->image && !str_contains($college->image, 'Temp')) {
                     Storage::disk('public')->delete($college->image);
                 }
                 $image_path = $this->image->store('colleges', 'public');
@@ -92,22 +92,28 @@ class CollegeList extends Component
                 'image' => $image_path
             ]);
 
-            $this->reset(['id', 'name', 'location', 'image']);
+            $this->reset(['id', 'name', 'location', 'image', 'currentImage']);
             session()->flash('success', 'College updated successfully!');
+            $this->dispatch('pg:eventRefresh-default');
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to update college. Please try again.');
         }
     }
 
-    public function delete($id)
+    #[\Livewire\Attributes\On('delete-college-form')]
+    public function delete($data)
     {
         try {
-            $college = College::findOrFail($id);
-            if ($college->image) {
+            $college = College::findOrFail($data['rowId']);
+
+            // Delete the image file if it exists
+            if ($college->image && !str_contains($college->image, 'Temp')) {
                 Storage::disk('public')->delete($college->image);
             }
             $college->delete();
+
             session()->flash('success', 'College deleted successfully!');
+            $this->dispatch('pg:eventRefresh-default');
         } catch (\Exception $e) {
             session()->flash('error', 'Failed to delete college. Please try again.');
         }
